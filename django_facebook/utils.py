@@ -188,6 +188,7 @@ def clear_persistent_graph_cache(request):
     request.facebook = None
     request.session.delete('graph')
     if request.user.is_authenticated():
+        print "RETRIEVE CA"
         profile = get_profile(request.user)
         profile.clear_access_token()
 
@@ -690,13 +691,29 @@ def get_migration_data():
     user_model_label = '%s.%s' % (User._meta.app_label, User._meta.module_name)
     return User, user_orm_label, user_model_label
 
+def get_django_facebook_profile_model():
+    django_facebook_profile_model=None
+    django_facebook_profile_string = getattr(settings, 'DJANGO_FACEBOOK_USER_PROFILE', None)
+    if django_facebook_profile_string:
+        app_label, model_label = django_facebook_profile_string.split('.')
+        django_facebook_profile_model = models.get_model(app_label, model_label)
+    return django_facebook_profile_model 
 
 def get_profile(user):
     '''
     Get profile
     '''
+    profile = None
     if django_version >= (1, 7, 0):
-        profile = user.facebookprofile
+        profile_model=get_django_facebook_profile_model()
+        try:
+            # TODO check for improvement of this one
+            profile=profile_model.objects.get( user_id__exact= user.id)
+        except :
+            profile=None
+
+        if not profile and user.facebookprofile:
+            profile = user.facebookprofile
     else:
         profile = user.get_profile()
     return profile
